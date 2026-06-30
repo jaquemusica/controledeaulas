@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Jaque Música — Gestão de Aulas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --bg:#FAF6F1;
+    --surface:#FFFFFF;
+    --surface-alt:#F3EAE2;
+    --primary:#6B2737;
+    --primary-dark:#4F1C29;
+    --primary-soft:#F3E2E6;
+    --accent:#C9A227;
+    --accent-soft:#FBF3DC;
+    --text:#2B1F24;
+    --text-soft:#8A7B80;
+    --border:#E9DFD6;
+    --success:#4F7942;
+    --success-bg:#E8F0E3;
+    --warning:#B8860B;
+    --warning-bg:#FBF3DC;
+    --danger:#B33A3A;
+    --danger-bg:#FBE8E6;
+    --info:#4F6C8A;
+    --info-bg:#E8EEF3;
+    --radius-sm:8px;
+    --radius:14px;
+    --radius-lg:20px;
+    --shadow:0 2px 10px rgba(43,31,36,0.06);
+    --shadow-md:0 10px 30px rgba(43,31,36,0.12);
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Poppins',sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{font-family:'Poppins',sans-serif;}
+  button{font-family:inherit;}
+  ::selection{background:var(--accent-soft);}
+
+  #shell{display:flex;min-height:100vh;}
+
+  /* SIDEBAR */
+  #sidebar{
+    width:228px;flex-shrink:0;background:var(--primary);
+    color:#fff;display:flex;flex-direction:column;padding:28px 16px;
+    position:sticky;top:0;height:100vh;
+  }
+  .brand{display:flex;align-items:center;gap:10px;padding:0 10px 28px 10px;}
+  .brand-mark{
+    width:34px;height:34px;border-radius:10px;background:rgba(255,255,255,0.14);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:16px;
+    color:#fff;flex-shrink:0;
+  }
+  .brand-text .t1{font-family:'Poppins',sans-serif;font-weight:600;font-size:19px;line-height:1.1;color:#fff;}
+  .brand-text .t2{font-size:11px;color:rgba(255,255,255,0.6);letter-spacing:.04em;}
+  .nav{display:flex;flex-direction:column;gap:4px;margin-top:8px;}
+  .nav-item{
+    display:flex;align-items:center;gap:12px;padding:11px 12px;border-radius:10px;
+    color:rgba(255,255,255,0.78);cursor:pointer;font-size:14.5px;font-weight:500;
+    border:none;background:transparent;text-align:left;width:100%;transition:background .15s,color .15s;
+  }
+  .nav-item svg{flex-shrink:0;opacity:.85;}
+  .nav-item:hover{background:rgba(255,255,255,0.08);color:#fff;}
+  .nav-item.active{background:rgba(255,255,255,0.16);color:#fff;}
+  .sidebar-foot{margin-top:auto;padding:10px;font-size:11.5px;color:rgba(255,255,255,0.45);line-height:1.5;}
+
+  /* MAIN */
+  #main{flex:1;min-width:0;padding:32px 36px 80px;max-width:1180px;}
+  .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:24px;flex-wrap:wrap;}
+  .page-head h1{font-size:27px;margin:0 0 4px;font-weight:600;}
+  .page-sub{color:var(--text-soft);font-size:14px;margin:0;}
+  .btn{
+    display:inline-flex;align-items:center;gap:7px;border:none;border-radius:10px;
+    padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;transition:transform .08s, box-shadow .15s, background .15s;
+    white-space:nowrap;
+  }
+  .btn:active{transform:scale(0.97);}
+  .btn-primary{background:var(--primary);color:#fff;}
+  .btn-primary:hover{background:var(--primary-dark);}
+  .btn-ghost{background:var(--surface-alt);color:var(--text);}
+  .btn-ghost:hover{background:#EBDFD3;}
+  .btn-outline{background:transparent;color:var(--primary);border:1.5px solid var(--primary-soft);}
+  .btn-outline:hover{background:var(--primary-soft);}
+  .btn-sm{padding:6px 11px;font-size:12.5px;border-radius:8px;}
+  .btn-icon{padding:7px;border-radius:8px;}
+  .btn[disabled]{opacity:.45;cursor:not-allowed;}
+
+  /* CARDS / GRID */
+  .grid{display:grid;gap:18px;}
+  .grid-dash{grid-template-columns:repeat(12,1fr);}
+  .card{
+    background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);
+    padding:20px;box-shadow:var(--shadow);
+  }
+  .card-title{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
+  .card-title h3{font-size:15px;margin:0;font-weight:600;display:flex;align-items:center;gap:8px;}
+  .card-title h3 svg{opacity:.6;}
+  .stat-card .value{font-family:'Poppins',sans-serif;font-size:34px;font-weight:600;line-height:1;margin:4px 0 2px;}
+  .stat-card .label{font-size:12.5px;color:var(--text-soft);}
+  .stat-select{font-size:12px;border:1px solid var(--border);border-radius:7px;padding:3px 6px;background:var(--surface-alt);color:var(--text);}
+
+  .empty{color:var(--text-soft);font-size:13.5px;padding:14px 4px;text-align:center;}
+
+  /* LIST ROWS */
+  .row-item{
+    display:flex;align-items:center;gap:12px;padding:10px 8px;border-radius:10px;
+  }
+  .row-item:hover{background:var(--surface-alt);}
+  .avatar{
+    width:34px;height:34px;border-radius:50%;background:var(--primary-soft);color:var(--primary-dark);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;font-family:'Poppins',sans-serif;
+  }
+  .row-main{flex:1;min-width:0;}
+  .row-main .name{font-weight:600;font-size:13.8px;}
+  .row-main .sub{font-size:12px;color:var(--text-soft);margin-top:1px;}
+  .row-actions{display:flex;gap:6px;flex-shrink:0;}
+
+  .badge{
+    display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;
+    padding:3px 9px;border-radius:99px;letter-spacing:.01em;
+  }
+  .badge-success{background:var(--success-bg);color:var(--success);}
+  .badge-warning{background:var(--warning-bg);color:var(--warning);}
+  .badge-danger{background:var(--danger-bg);color:var(--danger);}
+  .badge-info{background:var(--info-bg);color:var(--info);}
+  .badge-neutral{background:var(--surface-alt);color:var(--text-soft);}
+
+  /* TABLE */
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--text-soft);padding:8px 10px;border-bottom:1px solid var(--border);}
+  td{padding:10px 10px;border-bottom:1px solid var(--border);}
+  tr:last-child td{border-bottom:none;}
+  td.num{font-variant-numeric:tabular-nums;}
+
+  /* SECTION (alunos / agenda) */
+  .section-row{display:flex;gap:20px;align-items:flex-start;flex-wrap:wrap;}
+  .col{flex:1;min-width:300px;}
+
+  .search-box{
+    display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--border);
+    border-radius:10px;padding:8px 12px;margin-bottom:14px;
+  }
+  .search-box input{border:none;outline:none;font-size:14px;flex:1;background:transparent;color:var(--text);font-family:inherit;}
+
+  /* FORMS */
+  .field{margin-bottom:14px;}
+  .field label{display:block;font-size:12.5px;font-weight:600;color:var(--text-soft);margin-bottom:5px;}
+  .field input,.field select,.field textarea{
+    width:100%;padding:9px 11px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;
+    font-family:inherit;color:var(--text);background:var(--surface);
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:var(--primary);}
+  .field-row{display:flex;gap:12px;}
+  .field-row .field{flex:1;}
+  .checkrow{display:flex;align-items:center;gap:8px;font-size:13.5px;margin-bottom:14px;}
+  .checkrow input{width:auto;}
+  .hint{font-size:11.5px;color:var(--text-soft);margin-top:4px;}
+
+  /* MODAL */
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(43,31,36,0.45);display:flex;align-items:center;justify-content:center;
+    z-index:100;padding:20px;backdrop-filter:blur(2px);
+  }
+  .modal{
+    background:var(--surface);border-radius:var(--radius-lg);padding:26px 26px 22px;width:100%;max-width:460px;
+    box-shadow:var(--shadow-md);max-height:88vh;overflow-y:auto;
+  }
+  .modal h2{font-size:19px;margin:0 0 18px;font-weight:600;}
+  .modal-foot{display:flex;justify-content:flex-end;gap:10px;margin-top:18px;}
+
+  /* TOAST */
+  #toast-root{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:200;display:flex;flex-direction:column;gap:8px;align-items:center;}
+  .toast{background:var(--primary-dark);color:#fff;padding:10px 18px;border-radius:99px;font-size:13.5px;font-weight:500;box-shadow:var(--shadow-md);animation:toastin .2s ease;}
+  @keyframes toastin{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+  /* PROGRESS (equalizer) */
+  .eq{display:flex;gap:3px;align-items:flex-end;height:20px;}
+  .eq i{flex:1;display:block;background:var(--border);border-radius:2px;}
+  .eq i.done{background:var(--success);}
+  .eq i.last{background:var(--accent);}
+
+  /* AGENDA */
+  .agenda-nav{display:flex;align-items:center;gap:10px;margin-bottom:18px;}
+  .agenda-range{font-weight:600;font-size:14.5px;min-width:190px;}
+  .day-block{margin-bottom:22px;}
+  .day-head{display:flex;align-items:baseline;gap:8px;margin-bottom:8px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+  .day-head .dow{font-family:'Poppins',sans-serif;font-weight:600;font-size:15.5px;}
+  .day-head .dnum{font-size:12.5px;color:var(--text-soft);}
+  .day-head .dtoday{color:var(--primary);}
+  .lesson-card{
+    display:flex;align-items:center;gap:14px;padding:11px 12px;border-radius:10px;background:var(--surface);
+    border:1px solid var(--border);border-left:4px solid var(--info);margin-bottom:8px;
+  }
+  .lesson-card.st-realizada{border-left-color:var(--success);}
+  .lesson-card.st-falta{border-left-color:var(--danger);opacity:.75;}
+  .lesson-time{font-weight:700;font-size:13.5px;width:48px;flex-shrink:0;font-variant-numeric:tabular-nums;}
+  .lesson-main{flex:1;min-width:0;}
+  .lesson-main .lname{font-weight:600;font-size:13.8px;}
+  .lesson-main .lsub{font-size:11.8px;color:var(--text-soft);margin-top:1px;}
+  .lesson-actions{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+  .status-select{font-size:12px;border:1.5px solid var(--border);border-radius:8px;padding:5px 8px;background:var(--surface-alt);color:var(--text);font-weight:600;}
+
+  .back-link{display:inline-flex;align-items:center;gap:6px;color:var(--text-soft);font-size:13px;cursor:pointer;margin-bottom:14px;font-weight:600;border:none;background:none;padding:0;}
+  .back-link:hover{color:var(--primary);}
+
+  .tabs{display:flex;gap:4px;border-bottom:1px solid var(--border);margin-bottom:18px;}
+  .tab{padding:9px 4px;margin-right:18px;font-size:13.5px;font-weight:600;color:var(--text-soft);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;}
+  .tab.active{color:var(--primary);border-bottom-color:var(--primary);}
+
+  .student-head{display:flex;align-items:center;gap:14px;margin-bottom:6px;}
+  .student-head .avatar{width:48px;height:48px;font-size:18px;}
+  .student-head h1{margin:0;}
+
+  @media(max-width:880px){
+    #shell{flex-direction:column;}
+    #sidebar{
+      width:100%;height:auto;position:sticky;top:0;flex-direction:row;align-items:center;
+      padding:12px 14px;z-index:50;
+    }
+    .brand{padding:0 8px 0 0;}
+    .sidebar-foot{display:none;}
+    .nav{flex-direction:row;margin-top:0;flex:1;justify-content:flex-end;}
+    .nav-item span{display:none;}
+    #main{padding:20px 16px 60px;}
+    .section-row{flex-direction:column;}
+  }
+</style>
+</head>
+<body>
+<div id="shell">
+  <div id="sidebar"></div>
+  <div id="main"></div>
+</div>
+<div id="modal-root"></div>
+<div id="toast-root"></div>
+
+<script>
+/* ============================ ICONS ============================ */
+const ICONS = {
+  home:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9.5 12 3l9 6.5V20a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1Z"/></svg>',
+  calendar:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4.5" width="18" height="16" rx="2"/><path d="M16 2.5v4M8 2.5v4M3 9.5h18"/></svg>',
+  users:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.4"/><path d="M2.5 20c.7-3.6 3.3-5.6 6.5-5.6s5.8 2 6.5 5.6"/><circle cx="17.5" cy="8.5" r="2.6"/><path d="M16 14.6c2.4.3 4.2 2 4.8 5"/></svg>',
+  money:'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="3"/><path d="M6 6v.01M18 18v.01"/></svg>',
+  plus:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  check:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>',
+  x:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  edit:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  trash:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m-8 0 1 13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1l1-13"/></svg>',
+  alert:'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4m0 4h.01M10.3 3.8 2 18a1.5 1.5 0 0 0 1.3 2.2h17.4A1.5 1.5 0 0 0 22 18L13.7 3.8a1.5 1.5 0 0 0-2.6 0Z"/></svg>',
+  copy:'<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/></svg>',
+  chevL:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+  chevR:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
+  phone:'<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/></svg>',
+};
+
+/* ============================ STATE ============================ */
+let students = [], packages = [], lessons = [];
+let state = { view:'dashboard', selectedStudentId:null, studentTab:'pacotes',
+  agendaWeekStart:startOfWeek(todayStr()),
+  financeMonth:(new Date()).getMonth(), financeYear:(new Date()).getFullYear(),
+  studentSearch:'', loading:true, dbError:null };
+
+/* ============================ SUPABASE ============================ */
+const SUPABASE_URL = 'https://fwvjpokuyqwjgjbahcqx.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_-QU-U0iclMUJ-U-GNtxLwA_d3dL-oJj';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+/* ---- mapeamento camelCase (app) <-> snake_case (banco) ---- */
+function studentToRow(s){ return { id:s.id, name:s.name, phone:s.phone||null, email:s.email||null, notes:s.notes||null, created_at:s.createdAt||null }; }
+function rowToStudent(r){ return { id:r.id, name:r.name, phone:r.phone, email:r.email, notes:r.notes, createdAt:r.created_at }; }
+function packageToRow(p){ return { id:p.id, student_id:p.studentId, total_lessons:p.totalLessons, purchase_date:p.purchaseDate, value:p.value, payment_method:p.paymentMethod, paid:p.paid, paid_date:p.paidDate||null }; }
+function rowToPackage(r){ return { id:r.id, studentId:r.student_id, totalLessons:r.total_lessons, purchaseDate:r.purchase_date, value:Number(r.value), paymentMethod:r.payment_method, paid:r.paid, paidDate:r.paid_date }; }
+function lessonToRow(l){ return { id:l.id, student_id:l.studentId, package_id:l.packageId||null, date:l.date, time:l.time, duration:l.duration, status:l.status, notes:l.notes||null }; }
+function rowToLesson(r){ return { id:r.id, studentId:r.student_id, packageId:r.package_id, date:r.date, time:r.time, duration:r.duration, status:r.status, notes:r.notes }; }
+
+/* ---- carregar tudo ---- */
+async function loadAll(){
+  try{
+    const [sRes,pRes,lRes] = await Promise.all([
+      db.from('students').select('*'),
+      db.from('packages').select('*'),
+      db.from('lessons').select('*'),
+    ]);
+    if(sRes.error) throw sRes.error;
+    if(pRes.error) throw pRes.error;
+    if(lRes.error) throw lRes.error;
+    students = (sRes.data||[]).map(rowToStudent);
+    packages = (pRes.data||[]).map(rowToPackage);
+    lessons = (lRes.data||[]).map(rowToLesson);
+    state.dbError = null;
+  }catch(e){
+    console.error(e);
+    state.dbError = e.message || 'Não foi possível conectar ao banco de dados.';
+  }
+  state.loading = false;
+}
+
+/* ---- CRUD students ---- */
+async function dbInsertStudent(s){ const {error}=await db.from('students').insert(studentToRow(s)); if(error) handleDbError(error); }
+async function dbUpdateStudent(s){ const {error}=await db.from('students').update(studentToRow(s)).eq('id',s.id); if(error) handleDbError(error); }
+async function dbDeleteStudent(id){ const {error}=await db.from('students').delete().eq('id',id); if(error) handleDbError(error); }
+
+/* ---- CRUD packages ---- */
+async function dbInsertPackage(p){ const {error}=await db.from('packages').insert(packageToRow(p)); if(error) handleDbError(error); }
+async function dbUpdatePackage(p){ const {error}=await db.from('packages').update(packageToRow(p)).eq('id',p.id); if(error) handleDbError(error); }
+async function dbDeletePackage(id){ const {error}=await db.from('packages').delete().eq('id',id); if(error) handleDbError(error); }
+
+/* ---- CRUD lessons ---- */
+async function dbInsertLesson(l){ const {error}=await db.from('lessons').insert(lessonToRow(l)); if(error) handleDbError(error); }
+async function dbUpdateLesson(l){ const {error}=await db.from('lessons').update(lessonToRow(l)).eq('id',l.id); if(error) handleDbError(error); }
+async function dbDeleteLesson(id){ const {error}=await db.from('lessons').delete().eq('id',id); if(error) handleDbError(error); }
+
+function handleDbError(error){
+  console.error(error);
+  showToast('Erro ao salvar no banco: ' + (error.message||'tente novamente.'));
+}
+
+/* ============================ HELPERS ============================ */
+function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,7); }
+function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function pad(n){ return n.toString().padStart(2,'0'); }
+function parseD(s){ const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d); }
+function fmtD(s){ if(!s) return '—'; const d=parseD(s); return pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear(); }
+function addDays(s,n){ const d=parseD(s); d.setDate(d.getDate()+n); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function startOfWeek(s){ const d=parseD(s); const day=(d.getDay()+6)%7; d.setDate(d.getDate()-day); return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate()); }
+function fmtMoney(v){ return (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}); }
+function initials(name){ return name.trim().split(/\s+/).slice(0,2).map(p=>p[0]).join('').toUpperCase(); }
+const DOWS=['Segunda','Terça','Quarta','Quinta','Sexta','Sábado','Domingo'];
+const MONTHS=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+function studentById(id){ return students.find(s=>s.id===id); }
+function packageById(id){ return packages.find(p=>p.id===id); }
+function lessonsDoneForPackage(pkgId){ return lessons.filter(l=>l.packageId===pkgId && l.status==='realizada').length; }
+function pkgRemaining(p){ return Math.max(0, p.totalLessons - lessonsDoneForPackage(p.id)); }
+function pkgStatus(p){ return pkgRemaining(p)<=0 ? 'finalizado' : 'andamento'; }
+function activePackagesForStudent(id){ return packages.filter(p=>p.studentId===id && pkgStatus(p)==='andamento').sort((a,b)=>parseD(b.purchaseDate)-parseD(a.purchaseDate)); }
+function packagesForStudent(id){ return packages.filter(p=>p.studentId===id).sort((a,b)=>parseD(b.purchaseDate)-parseD(a.purchaseDate)); }
+function lessonsForStudent(id){ return lessons.filter(l=>l.studentId===id).sort((a,b)=> (b.date+b.time).localeCompare(a.date+a.time)); }
+function lessonsEndingPackages(){
+  // students whose active package has exactly 1 remaining
+  const out=[];
+  for(const p of packages){ if(pkgStatus(p)==='andamento' && pkgRemaining(p)===1){ out.push(p); } }
+  return out;
+}
+function pendingPayments(){ return packages.filter(p=>!p.paid); }
+
+/* ============================ TOAST ============================ */
+function showToast(msg){
+  const root=document.getElementById('toast-root');
+  const t=document.createElement('div'); t.className='toast'; t.textContent=msg;
+  root.appendChild(t);
+  setTimeout(()=>t.remove(),2400);
+}
+function copyText(text, okMsg){
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(text).then(()=>showToast(okMsg)).catch(()=>fallbackCopy(text,okMsg));
+  } else fallbackCopy(text,okMsg);
+}
+function fallbackCopy(text,okMsg){
+  const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta);
+  ta.select(); try{document.execCommand('copy'); showToast(okMsg);}catch(e){showToast('Não foi possível copiar');}
+  ta.remove();
+}
+
+/* ============================ RENDER SHELL ============================ */
+function render(){
+  renderSidebar();
+  document.getElementById('main').innerHTML = renderView();
+}
+function renderSidebar(){
+  const items=[
+    {v:'dashboard', label:'Início', icon:ICONS.home},
+    {v:'agenda', label:'Agenda', icon:ICONS.calendar},
+    {v:'alunos', label:'Alunos', icon:ICONS.users},
+    {v:'financeiro', label:'Financeiro', icon:ICONS.money},
+  ];
+  const active = state.view==='studentDetail' ? 'alunos' : state.view;
+  document.getElementById('sidebar').innerHTML = `
+    <div class="brand"><div class="brand-mark">J</div><div class="brand-text"><div class="t1">Jaque Música</div><div class="t2">aulas de canto</div></div></div>
+    <div class="nav">
+      ${items.map(it=>`<button class="nav-item ${active===it.v?'active':''}" data-action="nav" data-view="${it.v}">${it.icon}<span>${it.label}</span></button>`).join('')}
+    </div>
+    <div class="sidebar-foot">Seus dados ficam salvos<br>automaticamente neste app.</div>
+  `;
+}
+function renderView(){
+  switch(state.view){
+    case 'dashboard': return viewDashboard();
+    case 'agenda': return viewAgenda();
+    case 'alunos': return viewAlunos();
+    case 'studentDetail': return viewStudentDetail();
+    case 'financeiro': return viewFinanceiro();
+    default: return '';
+  }
+}
+
+/* ============================ DASHBOARD ============================ */
+function viewDashboard(){
+  const today = todayStr();
+  const todays = lessons.filter(l=>l.date===today).sort((a,b)=>a.time.localeCompare(b.time));
+  const ending = lessonsEndingPackages();
+  const pending = pendingPayments();
+  const weekStart = startOfWeek(today);
+  const weekEnd = addDays(weekStart,6);
+  const weekLessons = lessons.filter(l=>l.date>=weekStart && l.date<=weekEnd);
+
+  const monthsOptions = MONTHS.map((m,i)=>`<option value="${i}" ${i===state.financeMonth?'selected':''}>${m}</option>`).join('');
+  const years = Array.from(new Set([new Date().getFullYear(), ...packages.map(p=>parseD(p.purchaseDate).getFullYear())]));
+  if(!years.includes(state.financeYear)) years.push(state.financeYear);
+  years.sort();
+  const yearsOptions = years.map(y=>`<option value="${y}" ${y===state.financeYear?'selected':''}>${y}</option>`).join('');
+  const recebidoMes = packages.filter(p=>p.paid && p.paidDate && parseD(p.paidDate).getMonth()===state.financeMonth && parseD(p.paidDate).getFullYear()===state.financeYear)
+    .reduce((s,p)=>s+Number(p.value||0),0);
+
+  return `
+    <div class="page-head">
+      <div><h1>Boa, professora</h1><p class="page-sub">${fmtD(today)} · aqui está o resumo do seu estúdio</p></div>
+      <button class="btn btn-primary" data-action="open-add-lesson"><span style="display:flex">${ICONS.plus}</span> Nova aula</button>
+    </div>
+    <div class="grid grid-dash">
+
+      <div class="card" style="grid-column:span 7;">
+        <div class="card-title"><h3>${ICONS.calendar} Aulas de hoje</h3><span class="badge badge-neutral">${todays.length}</span></div>
+        ${todays.length===0?`<div class="empty">Nenhuma aula agendada para hoje.</div>`:
+          todays.map(l=>{
+            const st=studentById(l.studentId); if(!st) return '';
+            return `<div class="row-item">
+              <div class="avatar">${initials(st.name)}</div>
+              <div class="row-main"><div class="name">${st.name}</div><div class="sub">${l.time} · ${l.duration} min</div></div>
+              ${l.status==='realizada'?`<span class="badge badge-success">Realizada</span>`:
+                l.status==='falta'?`<span class="badge badge-danger">Falta</span>`:
+                `<div class="row-actions">
+                  <button class="btn btn-ghost btn-icon" title="Marcar falta" data-action="set-lesson-status" data-id="${l.id}" data-status="falta">${ICONS.x}</button>
+                  <button class="btn btn-primary btn-icon" title="Marcar realizada" data-action="set-lesson-status" data-id="${l.id}" data-status="realizada">${ICONS.check}</button>
+                </div>`}
+            </div>`;
+          }).join('')}
+      </div>
+
+      <div class="card" style="grid-column:span 5;">
+        <div class="card-title"><h3>${ICONS.alert} Pacotes acabando</h3><span class="badge badge-warning">${ending.length}</span></div>
+        ${ending.length===0?`<div class="empty">Nenhum pacote na última aula.</div>`:
+          ending.map(p=>{
+            const st=studentById(p.studentId); if(!st) return '';
+            return `<div class="row-item">
+              <div class="avatar">${initials(st.name)}</div>
+              <div class="row-main"><div class="name">${st.name}</div><div class="sub">resta 1 aula</div></div>
+              <div class="row-actions">
+                <button class="btn btn-ghost btn-icon" title="Copiar mensagem" data-action="copy-renew-msg" data-id="${st.id}">${ICONS.copy}</button>
+                <button class="btn btn-outline btn-sm" data-action="open-add-package" data-student="${st.id}">+ Pacote</button>
+              </div>
+            </div>`;
+          }).join('')}
+      </div>
+
+      <div class="card" style="grid-column:span 5;">
+        <div class="card-title"><h3>${ICONS.money} Pagamentos pendentes</h3><span class="badge badge-danger">${pending.length}</span></div>
+        ${pending.length===0?`<div class="empty">Tudo certo por aqui.</div>`:
+          pending.map(p=>{
+            const st=studentById(p.studentId); if(!st) return '';
+            return `<div class="row-item">
+              <div class="avatar">${initials(st.name)}</div>
+              <div class="row-main"><div class="name">${st.name}</div><div class="sub">${fmtMoney(p.value)}</div></div>
+              <div class="row-actions">
+                <button class="btn btn-ghost btn-icon" title="Copiar lembrete" data-action="copy-payment-msg" data-id="${p.id}">${ICONS.copy}</button>
+                <button class="btn btn-primary btn-sm" data-action="mark-paid" data-id="${p.id}">Marcar pago</button>
+              </div>
+            </div>`;
+          }).join('')}
+      </div>
+
+      <div class="card stat-card" style="grid-column:span 4;">
+        <div class="card-title"><h3>${ICONS.money} Recebido no mês</h3></div>
+        <div class="value">${fmtMoney(recebidoMes)}</div>
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <select class="stat-select" data-action="finance-month-change">${monthsOptions}</select>
+          <select class="stat-select" data-action="finance-year-change">${yearsOptions}</select>
+        </div>
+      </div>
+
+      <div class="card stat-card" style="grid-column:span 3;">
+        <div class="card-title"><h3>${ICONS.calendar} Aulas na semana</h3></div>
+        <div class="value">${weekLessons.length}</div>
+        <div class="label">${fmtD(weekStart)} – ${fmtD(weekEnd)}</div>
+      </div>
+
+    </div>
+  `;
+}
+
+/* ============================ AGENDA ============================ */
+function viewAgenda(){
+  const start = state.agendaWeekStart;
+  const days = Array.from({length:7},(_,i)=>addDays(start,i));
+  const today = todayStr();
+
+  const dayBlocks = days.map((d,i)=>{
+    const dayLessons = lessons.filter(l=>l.date===d).sort((a,b)=>a.time.localeCompare(b.time));
+    return `<div class="day-block">
+      <div class="day-head">
+        <span class="dow ${d===today?'dtoday':''}">${DOWS[i]}</span>
+        <span class="dnum ${d===today?'dtoday':''}">${fmtD(d)}${d===today?' · hoje':''}</span>
+      </div>
+      ${dayLessons.length===0?`<div class="empty" style="text-align:left;padding:6px 4px;">Sem aulas.</div>`:
+        dayLessons.map(l=>{
+          const st=studentById(l.studentId); if(!st) return '';
+          const pkg=packageById(l.packageId);
+          const isLast = pkg && pkgStatus(pkg)==='andamento' && pkgRemaining(pkg)===1 && l.status!=='realizada';
+          return `<div class="lesson-card st-${l.status}">
+            <div class="lesson-time">${l.time}</div>
+            <div class="lesson-main">
+              <div class="lname">${st.name} ${isLast?`<span class="badge badge-warning" style="margin-left:6px;">última do pacote</span>`:''}</div>
+              <div class="lsub">${l.duration} min${l.notes?(' · '+escapeHtml(l.notes)):''}</div>
+            </div>
+            <div class="lesson-actions">
+              <select class="status-select" data-action="lesson-status-select" data-id="${l.id}">
+                <option value="agendada" ${l.status==='agendada'?'selected':''}>Agendada</option>
+                <option value="realizada" ${l.status==='realizada'?'selected':''}>Realizada</option>
+                <option value="falta" ${l.status==='falta'?'selected':''}>Falta</option>
+              </select>
+              <button class="btn btn-ghost btn-icon" title="Excluir aula" data-action="delete-lesson" data-id="${l.id}">${ICONS.trash}</button>
+            </div>
+          </div>`;
+        }).join('')}
+    </div>`;
+  }).join('');
+
+  return `
+    <div class="page-head">
+      <div><h1>Agenda</h1><p class="page-sub">Suas aulas marcadas, semana a semana.</p></div>
+      <button class="btn btn-primary" data-action="open-add-lesson"><span style="display:flex">${ICONS.plus}</span> Nova aula</button>
+    </div>
+    <div class="agenda-nav">
+      <button class="btn btn-ghost btn-icon" data-action="agenda-prev">${ICONS.chevL}</button>
+      <button class="btn btn-ghost btn-icon" data-action="agenda-next">${ICONS.chevR}</button>
+      <button class="btn btn-outline btn-sm" data-action="agenda-today">Hoje</button>
+      <span class="agenda-range">${fmtD(days[0])} – ${fmtD(days[6])}</span>
+    </div>
+    ${dayBlocks}
+  `;
+}
+
+/* ============================ ALUNOS ============================ */
+function viewAlunos(){
+  const q = state.studentSearch.toLowerCase();
+  const list = students.filter(s=>s.name.toLowerCase().includes(q)).sort((a,b)=>a.name.localeCompare(b.name));
+  return `
+    <div class="page-head">
+      <div><h1>Alunos</h1><p class="page-sub">${students.length} aluno(s) cadastrado(s)</p></div>
+      <button class="btn btn-primary" data-action="open-add-student"><span style="display:flex">${ICONS.plus}</span> Novo aluno</button>
+    </div>
+    <div class="search-box">${ICONS.users}<input placeholder="Buscar aluno..." value="${escapeAttr(state.studentSearch)}" data-action="student-search" /></div>
+    <div class="card">
+      ${list.length===0?`<div class="empty">Nenhum aluno encontrado.</div>`:
+        list.map(s=>{
+          const active = activePackagesForStudent(s.id)[0];
+          const pend = packagesForStudent(s.id).some(p=>!p.paid);
+          let subtxt = active ? `${pkgRemaining(active)} aula(s) restante(s)` : 'Sem pacote ativo';
+          return `<div class="row-item" style="cursor:pointer;" data-action="open-student" data-id="${s.id}">
+            <div class="avatar">${initials(s.name)}</div>
+            <div class="row-main"><div class="name">${s.name}</div><div class="sub">${subtxt}</div></div>
+            <div class="row-actions">
+              ${active && pkgRemaining(active)===1?`<span class="badge badge-warning">acabando</span>`:''}
+              ${pend?`<span class="badge badge-danger">pendente</span>`:''}
+            </div>
+          </div>`;
+        }).join('')}
+    </div>
+  `;
+}
+
+/* ============================ STUDENT DETAIL ============================ */
+function viewStudentDetail(){
+  const s = studentById(state.selectedStudentId);
+  if(!s){ state.view='alunos'; return viewAlunos(); }
+  const sPackages = packagesForStudent(s.id);
+  const sLessons = lessonsForStudent(s.id);
+
+  let body='';
+  if(state.studentTab==='pacotes'){
+    body = sPackages.length===0 ? `<div class="empty">Nenhum pacote cadastrado ainda.</div>` :
+      sPackages.map(p=>{
+        const done = lessonsDoneForPackage(p.id);
+        const remaining = pkgRemaining(p);
+        const status = pkgStatus(p);
+        const segs = Array.from({length:p.totalLessons},(_,i)=>{
+          const filled = i<done;
+          const isLast = !filled && i===done && remaining===1;
+          return `<i class="${filled?'done':''} ${isLast?'last':''}"></i>`;
+        }).join('');
+        return `<div class="card" style="margin-bottom:14px;">
+          <div class="card-title">
+            <h3>Pacote de ${p.totalLessons} aulas <span class="badge ${status==='andamento'?'badge-info':'badge-neutral'}" style="margin-left:8px;">${status==='andamento'?'Em andamento':'Finalizado'}</span></h3>
+            <button class="btn btn-ghost btn-icon" title="Excluir pacote" data-action="delete-package" data-id="${p.id}">${ICONS.trash}</button>
+          </div>
+          <div class="eq" style="margin-bottom:10px;">${segs}</div>
+          <div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--text-soft);margin-bottom:12px;">
+            <span>${done} realizada(s)</span><span>${remaining} restante(s)</span>
+          </div>
+          <table>
+            <tr><td style="color:var(--text-soft);width:40%;">Comprado em</td><td>${fmtD(p.purchaseDate)}</td></tr>
+            <tr><td style="color:var(--text-soft);">Valor</td><td>${fmtMoney(p.value)}</td></tr>
+            <tr><td style="color:var(--text-soft);">Pagamento</td><td>${p.paymentMethod}${p.paid?` · pago em ${fmtD(p.paidDate)}`:` · <span class="badge badge-danger">pendente</span>`}</td></tr>
+          </table>
+          ${!p.paid?`<div style="margin-top:12px;"><button class="btn btn-primary btn-sm" data-action="mark-paid" data-id="${p.id}">Marcar como pago</button></div>`:''}
+        </div>`;
+      }).join('');
+    body += `<button class="btn btn-outline" data-action="open-add-package" data-student="${s.id}"><span style="display:flex">${ICONS.plus}</span> Novo pacote</button>`;
+  } else if(state.studentTab==='aulas'){
+    body = sLessons.length===0?`<div class="empty">Nenhuma aula registrada ainda.</div>`:
+      `<table><thead><tr><th>Data</th><th>Horário</th><th>Duração</th><th>Status</th><th>Observações</th></tr></thead><tbody>
+      ${sLessons.map(l=>`<tr>
+        <td>${fmtD(l.date)}</td><td>${l.time}</td><td>${l.duration} min</td>
+        <td>${l.status==='realizada'?'<span class="badge badge-success">Realizada</span>':l.status==='falta'?'<span class="badge badge-danger">Falta</span>':'<span class="badge badge-info">Agendada</span>'}</td>
+        <td>${l.notes?escapeHtml(l.notes):'—'}</td>
+      </tr>`).join('')}
+      </tbody></table>`;
+  } else if(state.studentTab==='financeiro'){
+    const total = sPackages.reduce((s2,p)=>s2+(p.paid?Number(p.value||0):0),0);
+    const pend = sPackages.reduce((s2,p)=>s2+(!p.paid?Number(p.value||0):0),0);
+    body = `
+      <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:16px;">
+        <div class="card stat-card"><div class="card-title"><h3>Total pago</h3></div><div class="value" style="font-size:24px;">${fmtMoney(total)}</div></div>
+        <div class="card stat-card"><div class="card-title"><h3>Pendente</h3></div><div class="value" style="font-size:24px;">${fmtMoney(pend)}</div></div>
+      </div>
+      ${sPackages.length===0?`<div class="empty">Nenhum pagamento registrado.</div>`:
+      `<table><thead><tr><th>Data compra</th><th>Pacote</th><th>Valor</th><th>Forma</th><th>Status</th></tr></thead><tbody>
+      ${sPackages.map(p=>`<tr>
+        <td>${fmtD(p.purchaseDate)}</td><td>${p.totalLessons} aulas</td><td class="num">${fmtMoney(p.value)}</td><td>${p.paymentMethod}</td>
+        <td>${p.paid?`<span class="badge badge-success">Pago</span>`:`<span class="badge badge-danger">Pendente</span>`}</td>
+      </tr>`).join('')}
+      </tbody></table>`}
+    `;
+  }
+
+  return `
+    <button class="back-link" data-action="back-students">${ICONS.chevL} Voltar para alunos</button>
+    <div class="student-head">
+      <div class="avatar">${initials(s.name)}</div>
+      <div>
+        <h1>${s.name}</h1>
+        <p class="page-sub">${s.phone||'sem telefone'}${s.email?' · '+s.email:''}</p>
+      </div>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <button class="btn btn-ghost btn-icon" title="Editar aluno" data-action="edit-student" data-id="${s.id}">${ICONS.edit}</button>
+        <button class="btn btn-ghost btn-icon" title="Excluir aluno" data-action="delete-student" data-id="${s.id}">${ICONS.trash}</button>
+      </div>
+    </div>
+    ${s.notes?`<p class="page-sub" style="margin-bottom:18px;">${escapeHtml(s.notes)}</p>`:''}
+    <div class="tabs">
+      <div class="tab ${state.studentTab==='pacotes'?'active':''}" data-action="student-tab" data-tab="pacotes">Pacotes</div>
+      <div class="tab ${state.studentTab==='aulas'?'active':''}" data-action="student-tab" data-tab="aulas">Histórico de aulas</div>
+      <div class="tab ${state.studentTab==='financeiro'?'active':''}" data-action="student-tab" data-tab="financeiro">Financeiro</div>
+    </div>
+    ${body}
+  `;
+}
+
+/* ============================ FINANCEIRO ============================ */
+function viewFinanceiro(){
+  const monthsOptions = MONTHS.map((m,i)=>`<option value="${i}" ${i===state.financeMonth?'selected':''}>${m}</option>`).join('');
+  const years = Array.from(new Set([new Date().getFullYear(), ...packages.map(p=>parseD(p.purchaseDate).getFullYear())]));
+  if(!years.includes(state.financeYear)) years.push(state.financeYear);
+  years.sort();
+  const yearsOptions = years.map(y=>`<option value="${y}" ${y===state.financeYear?'selected':''}>${y}</option>`).join('');
+
+  const recebidoMes = packages.filter(p=>p.paid && p.paidDate && parseD(p.paidDate).getMonth()===state.financeMonth && parseD(p.paidDate).getFullYear()===state.financeYear)
+    .reduce((s,p)=>s+Number(p.value||0),0);
+  const aReceber = packages.filter(p=>!p.paid).reduce((s,p)=>s+Number(p.value||0),0);
+
+  const allRows = packages.slice().sort((a,b)=>parseD(b.purchaseDate)-parseD(a.purchaseDate));
+
+  return `
+    <div class="page-head">
+      <div><h1>Financeiro</h1><p class="page-sub">Visão geral dos seus recebimentos.</p></div>
+    </div>
+    <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:20px;">
+      <div class="card stat-card">
+        <div class="card-title"><h3>Recebido no mês</h3></div>
+        <div class="value">${fmtMoney(recebidoMes)}</div>
+        <div style="display:flex;gap:6px;margin-top:8px;">
+          <select class="stat-select" data-action="finance-month-change">${monthsOptions}</select>
+          <select class="stat-select" data-action="finance-year-change">${yearsOptions}</select>
+        </div>
+      </div>
+      <div class="card stat-card">
+        <div class="card-title"><h3>A receber</h3></div>
+        <div class="value">${fmtMoney(aReceber)}</div>
+        <div class="label">total em pacotes pendentes</div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title"><h3>Histórico de pagamentos</h3></div>
+      ${allRows.length===0?`<div class="empty">Nenhum pagamento registrado ainda.</div>`:
+      `<table><thead><tr><th>Aluno</th><th>Data compra</th><th>Valor</th><th>Forma</th><th>Status</th><th></th></tr></thead><tbody>
+      ${allRows.map(p=>{
+        const st=studentById(p.studentId);
+        return `<tr>
+          <td>${st?st.name:'—'}</td><td>${fmtD(p.purchaseDate)}</td><td class="num">${fmtMoney(p.value)}</td><td>${p.paymentMethod}</td>
+          <td>${p.paid?`<span class="badge badge-success">Pago</span>`:`<span class="badge badge-danger">Pendente</span>`}</td>
+          <td>${!p.paid?`<button class="btn btn-primary btn-sm" data-action="mark-paid" data-id="${p.id}">Marcar pago</button>`:''}</td>
+        </tr>`;
+      }).join('')}
+      </tbody></table>`}
+    </div>
+  `;
+}
+
+/* ============================ UTIL ESCAPE ============================ */
+function escapeHtml(str){ return (str||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function escapeAttr(str){ return escapeHtml(str); }
+
+/* ============================ MODALS ============================ */
+function openModalHtml(html){
+  document.getElementById('modal-root').innerHTML = `<div class="modal-overlay" data-action="close-modal-bg">${html}</div>`;
+}
+function closeModal(){ document.getElementById('modal-root').innerHTML=''; }
+
+function openStudentModal(id){
+  const editing = id ? studentById(id) : null;
+  openModalHtml(`
+    <div class="modal" id="studentModal">
+      <h2>${editing?'Editar aluno':'Novo aluno'}</h2>
+      <form onsubmit="return handleStudentSubmit(event, ${editing?`'${id}'`:'null'})">
+        <div class="field"><label>Nome *</label><input id="f_name" required value="${editing?escapeAttr(editing.name):''}" placeholder="Nome completo"></div>
+        <div class="field"><label>Telefone</label><input id="f_phone" value="${editing?escapeAttr(editing.phone||''):''}" placeholder="(11) 99999-9999"></div>
+        <div class="field"><label>E-mail (opcional)</label><input id="f_email" type="email" value="${editing?escapeAttr(editing.email||''):''}" placeholder="email@exemplo.com"></div>
+        <div class="field"><label>Observações</label><textarea id="f_notes" rows="3" placeholder="Tom de voz, objetivos, preferências...">${editing?escapeHtml(editing.notes||''):''}</textarea></div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-ghost" data-action="close-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">${editing?'Salvar':'Cadastrar'}</button>
+        </div>
+      </form>
+    </div>
+  `);
+  setTimeout(()=>document.getElementById('f_name')?.focus(),50);
+}
+async function handleStudentSubmit(e,id){
+  e.preventDefault();
+  const name=document.getElementById('f_name').value.trim();
+  if(!name) return false;
+  const data={ name, phone:document.getElementById('f_phone').value.trim(),
+    email:document.getElementById('f_email').value.trim(), notes:document.getElementById('f_notes').value.trim() };
+  let newStudent=null;
+  if(id){
+    const s=studentById(id); Object.assign(s,data);
+    await dbUpdateStudent(s);
+  } else {
+    newStudent={ id:uid(), createdAt:todayStr(), ...data };
+    students.push(newStudent);
+    await dbInsertStudent(newStudent);
+  }
+  closeModal(); render();
+  showToast(id?'Aluno atualizado.':'Aluno cadastrado.');
+  return false;
+}
+function deleteStudent(id){
+  if(!confirm('Excluir este aluno? Isso também removerá seus pacotes e aulas registradas.')) return;
+  students = students.filter(s=>s.id!==id);
+  packages = packages.filter(p=>p.studentId!==id);
+  lessons = lessons.filter(l=>l.studentId!==id);
+  dbDeleteStudent(id).then(()=>{
+    state.view='alunos'; render(); showToast('Aluno excluído.');
+  });
+}
+
+function openPackageModal(studentId){
+  const opts = students.map(s=>`<option value="${s.id}" ${s.id===studentId?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
+  if(students.length===0){ showToast('Cadastre um aluno primeiro.'); return; }
+  openModalHtml(`
+    <div class="modal">
+      <h2>Novo pacote</h2>
+      <form onsubmit="return handlePackageSubmit(event)">
+        <div class="field"><label>Aluno *</label><select id="p_student" required>${opts}</select></div>
+        <div class="field-row">
+          <div class="field"><label>Qtd. de aulas *</label><input id="p_total" type="number" min="1" value="4" required></div>
+          <div class="field"><label>Data da compra *</label><input id="p_date" type="date" value="${todayStr()}" required></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Valor (R$) *</label><input id="p_value" type="number" min="0" step="0.01" placeholder="0,00" required></div>
+          <div class="field"><label>Forma de pagamento</label>
+            <select id="p_method"><option>Pix</option><option>Cartão</option></select>
+          </div>
+        </div>
+        <div class="checkrow"><input type="checkbox" id="p_paid" checked> <label for="p_paid" style="margin:0;">Já foi pago</label></div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-ghost" data-action="close-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Criar pacote</button>
+        </div>
+      </form>
+    </div>
+  `);
+}
+async function handlePackageSubmit(e){
+  e.preventDefault();
+  const paid=document.getElementById('p_paid').checked;
+  const pkg={
+    id:uid(), studentId:document.getElementById('p_student').value,
+    totalLessons:Number(document.getElementById('p_total').value)||1,
+    purchaseDate:document.getElementById('p_date').value,
+    value:Number(document.getElementById('p_value').value)||0,
+    paymentMethod:document.getElementById('p_method').value,
+    paid, paidDate: paid?todayStr():null,
+  };
+  packages.push(pkg);
+  await dbInsertPackage(pkg);
+  closeModal(); render();
+  showToast('Pacote criado.');
+  return false;
+}
+function deletePackage(id){
+  if(!confirm('Excluir este pacote? As aulas vinculadas a ele permanecerão registradas, mas perderão o vínculo.')) return;
+  packages = packages.filter(p=>p.id!==id);
+  lessons.forEach(l=>{ if(l.packageId===id) l.packageId=null; });
+  dbDeletePackage(id).then(()=>{ render(); showToast('Pacote excluído.'); });
+}
+function markPaid(id){
+  const p=packageById(id); if(!p) return;
+  p.paid=true; p.paidDate=todayStr();
+  dbUpdatePackage(p).then(()=>{ render(); showToast('Pagamento confirmado.'); });
+}
+
+function openLessonModal(studentId){
+  if(students.length===0){ showToast('Cadastre um aluno primeiro.'); return; }
+  const opts = students.map(s=>`<option value="${s.id}" ${s.id===studentId?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
+  openModalHtml(`
+    <div class="modal">
+      <h2>Nova aula</h2>
+      <form onsubmit="return handleLessonSubmit(event)">
+        <div class="field"><label>Aluno *</label><select id="l_student" required onchange="refreshLessonPackageInfo()">${opts}</select></div>
+        <div id="l_pkg_info"></div>
+        <div class="field-row">
+          <div class="field"><label>Data *</label><input id="l_date" type="date" value="${todayStr()}" required></div>
+          <div class="field"><label>Horário *</label><input id="l_time" type="time" value="10:00" required></div>
+        </div>
+        <div class="field"><label>Duração (min)</label><input id="l_duration" type="number" min="10" step="5" value="50"></div>
+        <div class="field"><label>Observações</label><textarea id="l_notes" rows="2" placeholder="Repertório, exercícios..."></textarea></div>
+        <div class="modal-foot">
+          <button type="button" class="btn btn-ghost" data-action="close-modal">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Agendar aula</button>
+        </div>
+      </form>
+    </div>
+  `);
+  setTimeout(refreshLessonPackageInfo,30);
+}
+function refreshLessonPackageInfo(){
+  const sel=document.getElementById('l_student'); if(!sel) return;
+  const sid=sel.value;
+  const active=activePackagesForStudent(sid)[0];
+  const box=document.getElementById('l_pkg_info');
+  if(active){
+    box.innerHTML = `<div class="hint" style="margin:-6px 0 14px;">Pacote ativo: ${pkgRemaining(active)} de ${active.totalLessons} aula(s) restantes. A aula será descontada dele quando marcada como realizada.</div>`;
+  } else {
+    box.innerHTML = `<div class="hint" style="margin:-6px 0 14px;color:var(--danger);">Este aluno não tem pacote ativo. Você pode agendar a aula, mas crie um pacote para controlar o saldo.</div>`;
+  }
+}
+async function handleLessonSubmit(e){
+  e.preventDefault();
+  const studentId=document.getElementById('l_student').value;
+  const active=activePackagesForStudent(studentId)[0];
+  const lesson={
+    id:uid(), studentId, packageId: active?active.id:null,
+    date:document.getElementById('l_date').value, time:document.getElementById('l_time').value,
+    duration:Number(document.getElementById('l_duration').value)||50,
+    status:'agendada', notes:document.getElementById('l_notes').value.trim(),
+  };
+  lessons.push(lesson);
+  await dbInsertLesson(lesson);
+  closeModal(); render();
+  showToast('Aula agendada.');
+  return false;
+}
+function deleteLesson(id){
+  if(!confirm('Excluir esta aula?')) return;
+  lessons = lessons.filter(l=>l.id!==id);
+  dbDeleteLesson(id).then(()=>{ render(); showToast('Aula excluída.'); });
+}
+function setLessonStatus(id,status){
+  const l=lessons.find(x=>x.id===id); if(!l) return;
+  l.status=status;
+  dbUpdateLesson(l).then(()=>{ render(); showToast(status==='realizada'?'Aula marcada como realizada.':'Aula marcada como falta.'); });
+}
+
+/* ============================ MESSAGE TEMPLATES ============================ */
+function copyRenewMsg(studentId){
+  const s=studentById(studentId); if(!s) return;
+  const msg = `Oi ${s.name.split(' ')[0]}! Passando para avisar que seu pacote de aulas está chegando ao fim. Vamos renovar para não perder o ritmo dos seus estudos?`;
+  copyText(msg, 'Mensagem copiada!');
+}
+function copyPaymentMsg(packageId){
+  const p=packageById(packageId); if(!p) return;
+  const s=studentById(p.studentId); if(!s) return;
+  const msg = `Oi ${s.name.split(' ')[0]}! Passando para lembrar do pagamento referente ao seu pacote de aulas (${fmtMoney(p.value)}). Qualquer dúvida, me chama.`;
+  copyText(msg, 'Mensagem copiada!');
+}
+
+/* ============================ EVENT DELEGATION ============================ */
+document.body.addEventListener('click', (e)=>{
+  const t = e.target.closest('[data-action]');
+  if(!t) return;
+  const a = t.dataset.action;
+  if(a==='close-modal') closeModal();
+  else if(a==='nav'){ state.view=t.dataset.view; state.selectedStudentId=null; render(); }
+  else if(a==='open-student'){ state.view='studentDetail'; state.selectedStudentId=t.dataset.id; state.studentTab='pacotes'; render(); }
+  else if(a==='back-students'){ state.view='alunos'; render(); }
+  else if(a==='student-tab'){ state.studentTab=t.dataset.tab; render(); }
+  else if(a==='open-add-student') openStudentModal();
+  else if(a==='edit-student') openStudentModal(t.dataset.id);
+  else if(a==='delete-student') deleteStudent(t.dataset.id);
+  else if(a==='open-add-package') openPackageModal(t.dataset.student||state.selectedStudentId);
+  else if(a==='delete-package') deletePackage(t.dataset.id);
+  else if(a==='mark-paid') markPaid(t.dataset.id);
+  else if(a==='open-add-lesson') openLessonModal(state.selectedStudentId);
+  else if(a==='delete-lesson') deleteLesson(t.dataset.id);
+  else if(a==='set-lesson-status') setLessonStatus(t.dataset.id, t.dataset.status);
+  else if(a==='copy-renew-msg') copyRenewMsg(t.dataset.id);
+  else if(a==='copy-payment-msg') copyPaymentMsg(t.dataset.id);
+  else if(a==='agenda-prev'){ state.agendaWeekStart=addDays(state.agendaWeekStart,-7); render(); }
+  else if(a==='agenda-next'){ state.agendaWeekStart=addDays(state.agendaWeekStart,7); render(); }
+  else if(a==='agenda-today'){ state.agendaWeekStart=startOfWeek(todayStr()); render(); }
+  else if(t.classList.contains('modal-overlay') || a==='close-modal-bg'){ if(e.target===t) closeModal(); }
+});
+document.body.addEventListener('change',(e)=>{
+  const t=e.target.closest('[data-action]'); if(!t) return;
+  const a=t.dataset.action;
+  if(a==='lesson-status-select') setLessonStatus(t.dataset.id, t.value);
+  else if(a==='finance-month-change'){ state.financeMonth=Number(t.value); render(); }
+  else if(a==='finance-year-change'){ state.financeYear=Number(t.value); render(); }
+});
+document.body.addEventListener('input',(e)=>{
+  const t=e.target.closest('[data-action]'); if(!t) return;
+  if(t.dataset.action==='student-search'){ state.studentSearch=t.value; render();
+    // refocus + cursor at end after re-render
+    setTimeout(()=>{ const el=document.querySelector('[data-action="student-search"]'); if(el){ el.focus(); el.selectionStart=el.selectionEnd=el.value.length; } },0);
+  }
+});
+
+/* ============================ INIT ============================ */
+(async function init(){
+  renderSidebar();
+  document.getElementById('main').innerHTML = `<div style="padding:80px 20px;text-align:center;color:var(--text-soft);">Carregando seus dados...</div>`;
+  await loadAll();
+  if(state.dbError){
+    document.getElementById('main').innerHTML = `
+      <div style="max-width:480px;margin:60px auto;text-align:center;">
+        <h2 style="margin-bottom:8px;">Não foi possível conectar</h2>
+        <p class="page-sub" style="margin-bottom:16px;">${escapeHtml(state.dbError)}</p>
+        <p class="page-sub">Verifique a URL e a chave do Supabase no código, e se as tabelas foram criadas.</p>
+        <button class="btn btn-primary" style="margin-top:16px;" onclick="location.reload()">Tentar novamente</button>
+      </div>`;
+    return;
+  }
+  render();
+})();
+</script>
+</body>
+</html>
