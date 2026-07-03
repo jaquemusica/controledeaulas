@@ -793,9 +793,17 @@ function viewFinanceiro(){
   years.sort();
   const yearsOptions = years.map(y=>`<option value="${y}" ${y===state.financeYear?'selected':''}>${y}</option>`).join('');
 
-  const recebidoMes = packages.filter(p=>p.paid && p.paidDate && parseD(p.paidDate).getMonth()===state.financeMonth && parseD(p.paidDate).getFullYear()===state.financeYear)
+  const paidInYear = packages.filter(p=>p.paid && p.paidDate && parseD(p.paidDate).getFullYear()===state.financeYear);
+  const recebidoMes = paidInYear.filter(p=>parseD(p.paidDate).getMonth()===state.financeMonth)
     .reduce((s,p)=>s+Number(p.value||0),0);
+  const recebidoAno = paidInYear.reduce((s,p)=>s+Number(p.value||0),0);
   const aReceber = packages.filter(p=>!p.paid).reduce((s,p)=>s+Number(p.value||0),0);
+
+  const porMes = MONTHS.map((m,i)=>{
+    const total = paidInYear.filter(p=>parseD(p.paidDate).getMonth()===i).reduce((s,p)=>s+Number(p.value||0),0);
+    return {m, i, total};
+  });
+  const maxMes = Math.max(1, ...porMes.map(x=>x.total));
 
   const allRows = packages.slice().sort((a,b)=>parseD(b.purchaseDate)-parseD(a.purchaseDate));
 
@@ -803,7 +811,7 @@ function viewFinanceiro(){
     <div class="page-head">
       <div><h1>Financeiro</h1><p class="page-sub">Visão geral dos seus recebimentos.</p></div>
     </div>
-    <div class="grid" style="grid-template-columns:1fr 1fr;margin-bottom:20px;">
+    <div class="grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:20px;">
       <div class="card stat-card">
         <div class="card-title"><h3>Recebido no mês</h3></div>
         <div class="value">${fmtMoney(recebidoMes)}</div>
@@ -813,9 +821,28 @@ function viewFinanceiro(){
         </div>
       </div>
       <div class="card stat-card">
+        <div class="card-title"><h3>Recebido no ano</h3></div>
+        <div class="value">${fmtMoney(recebidoAno)}</div>
+        <div class="label">total pago em ${state.financeYear}</div>
+      </div>
+      <div class="card stat-card">
         <div class="card-title"><h3>A receber</h3></div>
         <div class="value">${fmtMoney(aReceber)}</div>
         <div class="label">total em pacotes pendentes</div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:20px;">
+      <div class="card-title"><h3>Recebido por mês em ${state.financeYear}</h3></div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        ${porMes.map(x=>`
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div style="width:34px;flex-shrink:0;font-size:12px;color:var(--text-soft);">${x.m.slice(0,3)}</div>
+            <div style="flex:1;background:var(--surface-alt);border-radius:6px;overflow:hidden;height:16px;">
+              <div style="width:${(x.total/maxMes*100).toFixed(1)}%;background:${x.i===state.financeMonth?'var(--accent)':'var(--primary)'};height:100%;border-radius:6px;"></div>
+            </div>
+            <div style="width:90px;text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums;">${fmtMoney(x.total)}</div>
+          </div>
+        `).join('')}
       </div>
     </div>
     <div class="card">
@@ -928,11 +955,7 @@ function openPackageModal(studentId, editId){
           <div class="field"><label>Dia da semana *</label><select id="p_weekday">${dowOpts}</select></div>
           <div class="field"><label>Horário *</label><input id="p_time" type="time" value="${editing?(editing.time||'10:00'):'10:00'}" required></div>
         </div>
-        <div class="checkrow"><input type="checkbox" id="p_paid" ${editing?(editing.paid?'checked':''):'checked'} onchange="document.getElementById('p_paiddate_row').style.display=this.checked?'block':'none'"> <label for="p_paid" style="margin:0;">Já foi pago</label></div>
-        <div class="field" id="p_paiddate_row" style="display:${(editing?editing.paid:true)?'block':'none'};">
-          <label>Data do pagamento *</label>
-          <input id="p_paiddate" type="date" value="${editing?(editing.paidDate||editing.purchaseDate||todayStr()):todayStr()}">
-        </div>
+        <div class="checkrow"><input type="checkbox" id="p_paid" ${editing?(editing.paid?'checked':''):'checked'}> <label for="p_paid" style="margin:0;">Já foi pago</label></div>
         ${editing?`<div class="hint" style="margin:-6px 0 14px;">Alterar dia/horário aqui não move as aulas já agendadas. Para remarcar uma aula específica, edite-a na Agenda.</div>`:
           `<div class="checkrow"><input type="checkbox" id="p_autodist" checked> <label for="p_autodist" style="margin:0;">Distribuir as aulas automaticamente na agenda</label></div>`}
         <div class="hint" id="p_hint" style="margin:-6px 0 14px;"></div>
@@ -989,7 +1012,7 @@ function weeklyDatesFrom(startDate, weekday, count, perWeek){
 async function handlePackageSubmit(e, editId){
   e.preventDefault();
   const paid=document.getElementById('p_paid').checked;
-  const paidDate=document.getElementById('p_paiddate').value || todayStr();
+  const purchaseDate=document.getElementById('p_date').value;
   const planType=document.getElementById('p_plantype').value;
   const weekday=Number(document.getElementById('p_weekday').value);
   const time=document.getElementById('p_time').value;
@@ -1002,8 +1025,8 @@ async function handlePackageSubmit(e, editId){
     Object.assign(pkg, {
       totalLessons, value:Number(document.getElementById('p_value').value)||0,
       paymentMethod:document.getElementById('p_method').value,
-      purchaseDate:document.getElementById('p_date').value,
-      paid, paidDate: paid?paidDate:null,
+      purchaseDate,
+      paid, paidDate: paid?purchaseDate:null,
       planType, weekday, time, startDate,
     });
     await dbUpdatePackage(pkg);
@@ -1016,10 +1039,10 @@ async function handlePackageSubmit(e, editId){
   const pkg={
     id:uid(), studentId:document.getElementById('p_student').value,
     totalLessons,
-    purchaseDate:document.getElementById('p_date').value,
+    purchaseDate,
     value:Number(document.getElementById('p_value').value)||0,
     paymentMethod:document.getElementById('p_method').value,
-    paid, paidDate: paid?paidDate:null,
+    paid, paidDate: paid?purchaseDate:null,
     planType, weekday, time, startDate,
   };
   packages.push(pkg);
