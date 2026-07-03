@@ -197,6 +197,27 @@
   .day-head .dow{font-family:'Poppins',sans-serif;font-weight:600;font-size:15.5px;}
   .day-head .dnum{font-size:12.5px;color:var(--text-soft);}
   .day-head .dtoday{color:var(--primary);}
+
+  /* MONTH GRID */
+  .month-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;}
+  .month-head-row{margin-bottom:6px;}
+  .month-dow{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--text-soft);text-align:center;padding:4px 0;}
+  .month-cell{
+    background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    min-height:96px;padding:6px;display:flex;flex-direction:column;gap:3px;
+  }
+  .month-cell.out{background:var(--surface-alt);opacity:.55;}
+  .month-cell.today{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary);}
+  .month-cell-num{font-size:12px;font-weight:600;color:var(--text-soft);margin-bottom:2px;}
+  .month-cell.today .month-cell-num{color:var(--primary);}
+  .month-chip{
+    font-size:10.5px;font-weight:600;padding:2px 6px;border-radius:6px;background:var(--info-bg);color:var(--info);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .month-chip.st-realizada{background:var(--success-bg);color:var(--success);}
+  .month-chip.st-falta{background:var(--danger-bg);color:var(--danger);}
+  .month-more{font-size:10px;color:var(--text-soft);padding:1px 6px;}
+  @media (max-width:800px){ .month-cell{min-height:64px;} .month-dow{font-size:9.5px;} }
   .lesson-card{
     display:flex;align-items:center;gap:14px;padding:11px 12px;border-radius:10px;background:var(--surface);
     border:1px solid var(--border);border-left:4px solid var(--info);margin-bottom:8px;
@@ -266,7 +287,8 @@ const ICONS = {
 /* ============================ STATE ============================ */
 let students = [], packages = [], lessons = [];
 let state = { view:'dashboard', selectedStudentId:null, studentTab:'pacotes',
-  agendaWeekStart:startOfWeek(todayStr()),
+  agendaWeekStart:startOfWeek(todayStr()), agendaViewMode:'semana',
+  agendaMonth:(new Date()).getMonth(), agendaYear:(new Date()).getFullYear(),
   financeMonth:(new Date()).getMonth(), financeYear:(new Date()).getFullYear(),
   studentSearch:'', loading:true, dbError:null };
 
@@ -278,8 +300,8 @@ const db = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 /* ---- mapeamento camelCase (app) <-> snake_case (banco) ---- */
 function studentToRow(s){ return { id:s.id, name:s.name, phone:s.phone||null, email:s.email||null, notes:s.notes||null, created_at:s.createdAt||null }; }
 function rowToStudent(r){ return { id:r.id, name:r.name, phone:r.phone, email:r.email, notes:r.notes, createdAt:r.created_at }; }
-function packageToRow(p){ return { id:p.id, student_id:p.studentId, total_lessons:p.totalLessons, purchase_date:p.purchaseDate, value:p.value, payment_method:p.paymentMethod, paid:p.paid, paid_date:p.paidDate||null }; }
-function rowToPackage(r){ return { id:r.id, studentId:r.student_id, totalLessons:r.total_lessons, purchaseDate:r.purchase_date, value:Number(r.value), paymentMethod:r.payment_method, paid:r.paid, paidDate:r.paid_date }; }
+function packageToRow(p){ return { id:p.id, student_id:p.studentId, total_lessons:p.totalLessons, purchase_date:p.purchaseDate, value:p.value, payment_method:p.paymentMethod, paid:p.paid, paid_date:p.paidDate||null, plan_type:p.planType||'pacote', weekday:(p.weekday===undefined||p.weekday===null)?null:p.weekday, time:p.time||null, start_date:p.startDate||null }; }
+function rowToPackage(r){ return { id:r.id, studentId:r.student_id, totalLessons:r.total_lessons, purchaseDate:r.purchase_date, value:Number(r.value), paymentMethod:r.payment_method, paid:r.paid, paidDate:r.paid_date, planType:r.plan_type||'pacote', weekday:(r.weekday===null||r.weekday===undefined)?null:Number(r.weekday), time:r.time, startDate:r.start_date }; }
 function lessonToRow(l){ return { id:l.id, student_id:l.studentId, package_id:l.packageId||null, date:l.date, time:l.time, duration:l.duration, status:l.status, notes:l.notes||null }; }
 function rowToLesson(r){ return { id:r.id, studentId:r.student_id, packageId:r.package_id, date:r.date, time:r.time, duration:r.duration, status:r.status, notes:r.notes }; }
 
@@ -342,6 +364,11 @@ function studentById(id){ return students.find(s=>s.id===id); }
 function packageById(id){ return packages.find(p=>p.id===id); }
 function lessonsDoneForPackage(pkgId){ return lessons.filter(l=>l.packageId===pkgId && l.status==='realizada').length; }
 function pkgRemaining(p){ return Math.max(0, p.totalLessons - lessonsDoneForPackage(p.id)); }
+function planLabel(p){
+  if(p.planType==='avulsa') return 'Aula avulsa';
+  if(p.planType==='mensalidade') return `Mensalidade (${p.totalLessons} aulas/mês)`;
+  return `Pacote de ${p.totalLessons} aulas`;
+}
 function pkgStatus(p){ return pkgRemaining(p)<=0 ? 'finalizado' : 'andamento'; }
 function activePackagesForStudent(id){ return packages.filter(p=>p.studentId===id && pkgStatus(p)==='andamento').sort((a,b)=>parseD(b.purchaseDate)-parseD(a.purchaseDate)); }
 function packagesForStudent(id){ return packages.filter(p=>p.studentId===id).sort((a,b)=>parseD(b.purchaseDate)-parseD(a.purchaseDate)); }
@@ -499,7 +526,23 @@ function viewDashboard(){
 }
 
 /* ============================ AGENDA ============================ */
+function agendaToggle(){
+  return `<div class="agenda-nav" style="margin-bottom:0;">
+    <button class="btn ${state.agendaViewMode==='semana'?'btn-primary':'btn-ghost'} btn-sm" data-action="agenda-view-week">Semana</button>
+    <button class="btn ${state.agendaViewMode==='mes'?'btn-primary':'btn-ghost'} btn-sm" data-action="agenda-view-month">Mês</button>
+  </div>`;
+}
 function viewAgenda(){
+  return `
+    <div class="page-head">
+      <div><h1>Agenda</h1><p class="page-sub">Suas aulas marcadas.</p></div>
+      <button class="btn btn-primary" data-action="open-add-lesson"><span style="display:flex">${ICONS.plus}</span> Nova aula</button>
+    </div>
+    ${agendaToggle()}
+    ${state.agendaViewMode==='mes'?viewAgendaMonth():viewAgendaWeek()}
+  `;
+}
+function viewAgendaWeek(){
   const start = state.agendaWeekStart;
   const days = Array.from({length:7},(_,i)=>addDays(start,i));
   const today = todayStr();
@@ -536,10 +579,6 @@ function viewAgenda(){
   }).join('');
 
   return `
-    <div class="page-head">
-      <div><h1>Agenda</h1><p class="page-sub">Suas aulas marcadas, semana a semana.</p></div>
-      <button class="btn btn-primary" data-action="open-add-lesson"><span style="display:flex">${ICONS.plus}</span> Nova aula</button>
-    </div>
     <div class="agenda-nav">
       <button class="btn btn-ghost btn-icon" data-action="agenda-prev">${ICONS.chevL}</button>
       <button class="btn btn-ghost btn-icon" data-action="agenda-next">${ICONS.chevR}</button>
@@ -547,6 +586,48 @@ function viewAgenda(){
       <span class="agenda-range">${fmtD(days[0])} – ${fmtD(days[6])}</span>
     </div>
     ${dayBlocks}
+  `;
+}
+const MONTH_NAMES=['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+function viewAgendaMonth(){
+  const y=state.agendaYear, m=state.agendaMonth;
+  const firstOfMonth = new Date(y,m,1);
+  const firstDow = (firstOfMonth.getDay()+6)%7; // 0=Monday
+  const daysInMonth = new Date(y,m+1,0).getDate();
+  const gridStart = new Date(y,m,1-firstDow);
+  const today = todayStr();
+
+  const cells=[];
+  for(let i=0;i<42;i++){
+    const d=new Date(gridStart); d.setDate(gridStart.getDate()+i);
+    const dStr = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    const inMonth = d.getMonth()===m;
+    const dayLessons = lessons.filter(l=>l.date===dStr).sort((a,b)=>a.time.localeCompare(b.time));
+    const visible = dayLessons.slice(0,3);
+    const extra = dayLessons.length-visible.length;
+    cells.push(`<div class="month-cell${inMonth?'':' out'}${dStr===today?' today':''}">
+      <div class="month-cell-num">${d.getDate()}</div>
+      ${visible.map(l=>{ const st=studentById(l.studentId); return `<div class="month-chip st-${l.status}" title="${st?escapeAttr(st.name):''} · ${l.time}">${l.time} ${st?escapeHtml(st.name.split(' ')[0]):''}</div>`; }).join('')}
+      ${extra>0?`<div class="month-more">+${extra} mais</div>`:''}
+    </div>`);
+  }
+  // trim to complete week-rows that cover the month
+  const totalCells = Math.ceil((firstDow+daysInMonth)/7)*7;
+  const trimmed = cells.slice(0,totalCells);
+
+  return `
+    <div class="agenda-nav">
+      <button class="btn btn-ghost btn-icon" data-action="agenda-month-prev">${ICONS.chevL}</button>
+      <button class="btn btn-ghost btn-icon" data-action="agenda-month-next">${ICONS.chevR}</button>
+      <button class="btn btn-outline btn-sm" data-action="agenda-month-today">Hoje</button>
+      <span class="agenda-range">${MONTH_NAMES[m]} de ${y}</span>
+    </div>
+    <div class="month-grid month-head-row">
+      ${DOWS.map(d=>`<div class="month-dow">${d.slice(0,3)}</div>`).join('')}
+    </div>
+    <div class="month-grid">
+      ${trimmed.join('')}
+    </div>
   `;
 }
 
@@ -600,7 +681,7 @@ function viewStudentDetail(){
         }).join('');
         return `<div class="card" style="margin-bottom:14px;">
           <div class="card-title">
-            <h3>Pacote de ${p.totalLessons} aulas <span class="badge ${status==='andamento'?'badge-info':'badge-neutral'}" style="margin-left:8px;">${status==='andamento'?'Em andamento':'Finalizado'}</span></h3>
+            <h3>${planLabel(p)} <span class="badge ${status==='andamento'?'badge-info':'badge-neutral'}" style="margin-left:8px;">${status==='andamento'?'Em andamento':'Finalizado'}</span></h3>
             <button class="btn btn-ghost btn-icon" title="Excluir pacote" data-action="delete-package" data-id="${p.id}">${ICONS.trash}</button>
           </div>
           <div class="eq" style="margin-bottom:10px;">${segs}</div>
@@ -636,7 +717,7 @@ function viewStudentDetail(){
       ${sPackages.length===0?`<div class="empty">Nenhum pagamento registrado.</div>`:
       `<table><thead><tr><th>Data compra</th><th>Pacote</th><th>Valor</th><th>Forma</th><th>Status</th></tr></thead><tbody>
       ${sPackages.map(p=>`<tr>
-        <td>${fmtD(p.purchaseDate)}</td><td>${p.totalLessons} aulas</td><td class="num">${fmtMoney(p.value)}</td><td>${p.paymentMethod}</td>
+        <td>${fmtD(p.purchaseDate)}</td><td>${planLabel(p)}</td><td class="num">${fmtMoney(p.value)}</td><td>${p.paymentMethod}</td>
         <td>${p.paid?`<span class="badge badge-success">Pago</span>`:`<span class="badge badge-danger">Pendente</span>`}</td>
       </tr>`).join('')}
       </tbody></table>`}
@@ -777,22 +858,40 @@ function deleteStudent(id){
 function openPackageModal(studentId){
   const opts = students.map(s=>`<option value="${s.id}" ${s.id===studentId?'selected':''}>${escapeHtml(s.name)}</option>`).join('');
   if(students.length===0){ showToast('Cadastre um aluno primeiro.'); return; }
+  const dowOpts = DOWS.map((d,i)=>`<option value="${i}">${d}</option>`).join('');
   openModalHtml(`
     <div class="modal">
       <h2>Novo pacote</h2>
       <form onsubmit="return handlePackageSubmit(event)">
         <div class="field"><label>Aluno *</label><select id="p_student" required>${opts}</select></div>
-        <div class="field-row">
+        <div class="field"><label>Tipo de contratação *</label>
+          <select id="p_plantype" onchange="refreshPackagePlanFields()">
+            <option value="avulsa">Aula avulsa</option>
+            <option value="pacote" selected>Pacote de aulas</option>
+            <option value="mensalidade">Mensalidade</option>
+          </select>
+        </div>
+        <div class="field-row" id="p_row_total">
           <div class="field"><label>Qtd. de aulas *</label><input id="p_total" type="number" min="1" value="4" required></div>
-          <div class="field"><label>Data da compra *</label><input id="p_date" type="date" value="${todayStr()}" required></div>
+          <div class="field"><label>Aulas / semana</label><input id="p_perweek" type="number" min="1" max="7" value="1" onchange="refreshPackagePlanFields()"></div>
         </div>
         <div class="field-row">
-          <div class="field"><label>Valor (R$) *</label><input id="p_value" type="number" min="0" step="0.01" placeholder="0,00" required></div>
+          <div class="field"><label id="p_value_label">Valor (R$) *</label><input id="p_value" type="number" min="0" step="0.01" placeholder="0,00" required></div>
           <div class="field"><label>Forma de pagamento</label>
             <select id="p_method"><option>Pix</option><option>Cartão</option></select>
           </div>
         </div>
+        <div class="field-row">
+          <div class="field"><label>Data da compra *</label><input id="p_date" type="date" value="${todayStr()}" required></div>
+          <div class="field"><label>Data de início das aulas *</label><input id="p_start" type="date" value="${todayStr()}" required></div>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>Dia da semana *</label><select id="p_weekday">${dowOpts}</select></div>
+          <div class="field"><label>Horário *</label><input id="p_time" type="time" value="10:00" required></div>
+        </div>
         <div class="checkrow"><input type="checkbox" id="p_paid" checked> <label for="p_paid" style="margin:0;">Já foi pago</label></div>
+        <div class="checkrow"><input type="checkbox" id="p_autodist" checked> <label for="p_autodist" style="margin:0;">Distribuir as aulas automaticamente na agenda</label></div>
+        <div class="hint" id="p_hint" style="margin:-6px 0 14px;"></div>
         <div class="modal-foot">
           <button type="button" class="btn btn-ghost" data-action="close-modal">Cancelar</button>
           <button type="submit" class="btn btn-primary">Criar pacote</button>
@@ -800,22 +899,79 @@ function openPackageModal(studentId){
       </form>
     </div>
   `);
+  setTimeout(()=>{ document.getElementById('p_weekday').value=new Date().getDay()===0?6:new Date().getDay()-1; refreshPackagePlanFields(); },30);
+}
+function refreshPackagePlanFields(){
+  const type=document.getElementById('p_plantype')?.value; if(!type) return;
+  const rowTotal=document.getElementById('p_row_total');
+  const totalInput=document.getElementById('p_total');
+  const perweekInput=document.getElementById('p_perweek');
+  const valueLabel=document.getElementById('p_value_label');
+  const hint=document.getElementById('p_hint');
+  if(type==='avulsa'){
+    rowTotal.style.display='none'; totalInput.value=1; totalInput.required=false;
+    valueLabel.textContent='Valor da aula (R$) *';
+    hint.textContent='Será agendada 1 aula, na data de início escolhida.';
+  } else if(type==='pacote'){
+    rowTotal.style.display='flex'; totalInput.required=true;
+    valueLabel.textContent='Valor do pacote (R$) *';
+    hint.textContent='As aulas serão distribuídas semanalmente, no dia e horário escolhidos, a partir da data de início.';
+  } else if(type==='mensalidade'){
+    rowTotal.style.display='flex'; totalInput.required=false;
+    valueLabel.textContent='Valor da mensalidade (R$) *';
+    const perweek=Number(perweekInput.value)||1;
+    totalInput.value=perweek*4;
+    hint.textContent='Serão geradas as aulas de 4 semanas (renove o pacote no mês seguinte).';
+  }
+}
+function weeklyDatesFrom(startDate, weekday, count, perWeek){
+  perWeek = perWeek||1;
+  const dates=[];
+  let d=parseD(startDate);
+  const curDow=(d.getDay()+6)%7;
+  let diff=weekday-curDow; if(diff<0) diff+=7;
+  d.setDate(d.getDate()+diff);
+  let cur = d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  const stepDays = perWeek>1 ? Math.max(1,Math.floor(7/perWeek)) : 7;
+  for(let i=0;i<count;i++){
+    dates.push(cur);
+    cur = addDays(cur, stepDays);
+  }
+  return dates;
 }
 async function handlePackageSubmit(e){
   e.preventDefault();
   const paid=document.getElementById('p_paid').checked;
+  const planType=document.getElementById('p_plantype').value;
+  const weekday=Number(document.getElementById('p_weekday').value);
+  const time=document.getElementById('p_time').value;
+  const startDate=document.getElementById('p_start').value;
+  const autoDist=document.getElementById('p_autodist').checked;
+  const perWeek=Number(document.getElementById('p_perweek').value)||1;
+  let totalLessons = planType==='avulsa' ? 1 : (Number(document.getElementById('p_total').value)||1);
   const pkg={
     id:uid(), studentId:document.getElementById('p_student').value,
-    totalLessons:Number(document.getElementById('p_total').value)||1,
+    totalLessons,
     purchaseDate:document.getElementById('p_date').value,
     value:Number(document.getElementById('p_value').value)||0,
     paymentMethod:document.getElementById('p_method').value,
     paid, paidDate: paid?todayStr():null,
+    planType, weekday, time, startDate,
   };
   packages.push(pkg);
   await dbInsertPackage(pkg);
+  let created=0;
+  if(autoDist){
+    const dates = weeklyDatesFrom(startDate, weekday, totalLessons, planType==='mensalidade'?perWeek:1);
+    for(const date of dates){
+      const lesson={ id:uid(), studentId:pkg.studentId, packageId:pkg.id, date, time, duration:50, status:'agendada', notes:'' };
+      lessons.push(lesson);
+      await dbInsertLesson(lesson);
+      created++;
+    }
+  }
   closeModal(); render();
-  showToast('Pacote criado.');
+  showToast(created>0?`Pacote criado e ${created} aula(s) distribuída(s) na agenda.`:'Pacote criado.');
   return false;
 }
 function deletePackage(id){
@@ -929,6 +1085,11 @@ document.body.addEventListener('click', (e)=>{
   else if(a==='agenda-prev'){ state.agendaWeekStart=addDays(state.agendaWeekStart,-7); render(); }
   else if(a==='agenda-next'){ state.agendaWeekStart=addDays(state.agendaWeekStart,7); render(); }
   else if(a==='agenda-today'){ state.agendaWeekStart=startOfWeek(todayStr()); render(); }
+  else if(a==='agenda-view-week'){ state.agendaViewMode='semana'; render(); }
+  else if(a==='agenda-view-month'){ state.agendaViewMode='mes'; render(); }
+  else if(a==='agenda-month-prev'){ state.agendaMonth--; if(state.agendaMonth<0){state.agendaMonth=11; state.agendaYear--;} render(); }
+  else if(a==='agenda-month-next'){ state.agendaMonth++; if(state.agendaMonth>11){state.agendaMonth=0; state.agendaYear++;} render(); }
+  else if(a==='agenda-month-today'){ const t=new Date(); state.agendaMonth=t.getMonth(); state.agendaYear=t.getFullYear(); render(); }
   else if(t.classList.contains('modal-overlay') || a==='close-modal-bg'){ if(e.target===t) closeModal(); }
 });
 document.body.addEventListener('change',(e)=>{
